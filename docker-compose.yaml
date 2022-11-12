@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  base: &base
+    image: chatwoot/chatwoot:latest
+    env_file: stack.env ## Change this file for customized env variables
+    volumes:
+      - /var/lib/docker/volumes/chatwootdata/_data:/app/storage
+
+  rails:
+    <<: *base
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - '127.0.0.1:3028:3000'
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3028', '-b', '0.0.0.0']
+
+  sidekiq:
+    <<: *base
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+
+  postgres:
+    image: postgres:12
+    restart: always
+    ports:
+      - '127.0.0.1:5462:5432'
+    volumes:
+      - /var/lib/docker/volumes/chatwootdbdata/_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=chatwoot
+      - POSTGRES_USER=postgres
+      # Please provide your own password.
+      - POSTGRES_PASSWORD=4W3C9sAoEkrw52d
+      - POSTGRES_PORT=5462
+
+  redis:
+    image: redis:alpine
+    restart: always
+    command: ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\""]
+    env_file: stack.env
+    volumes:
+      - /var/lib/docker/volumes/redisdata/_data:/data
+    ports:
+      - '127.0.0.1:6389:6379'
